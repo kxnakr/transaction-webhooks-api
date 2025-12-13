@@ -143,7 +143,7 @@ async def accept_transaction(
     )
 
 
-@app.get("/v1/transactions/{transaction_id}", response_model=TransactionResponse)
+@app.get("/v1/transactions/{transaction_id}", response_model=list[TransactionResponse])
 async def transaction_status(
     transaction_id: str,
     db: Session = Depends(get_db),
@@ -158,7 +158,7 @@ async def transaction_status(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    return TransactionResponse(
+    return [TransactionResponse(
         transaction_id=transaction.transaction_id,
         source_account=transaction.source_account,
         destination_account=transaction.destination_account,
@@ -167,7 +167,7 @@ async def transaction_status(
         status=transaction.status,
         created_at=transaction.created_at,
         processed_at=transaction.processed_at,
-    )
+    )]
 
 
 if __name__ == "__main__":
