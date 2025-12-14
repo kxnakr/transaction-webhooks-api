@@ -1,7 +1,7 @@
 import logging
 import uvicorn
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -20,6 +20,19 @@ from .database import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_datetime(value: Optional[Union[datetime, str]]) -> Optional[datetime]:
+    """Handle non-ISO db datetime strings (e.g., `2025-12-14 19:59:25.47352+00`)."""
+    if value is None or isinstance(value, datetime):
+        return value
+
+    # Convert Postgres-style string to ISO so pydantic can parse it.
+    cleaned = value.strip().replace(" ", "T")
+    if cleaned.endswith("+00"):
+        cleaned = f"{cleaned}:00"
+
+    return datetime.fromisoformat(cleaned)
 
 class TransactionWebhook(BaseModel):
     """Webhook payload schema."""
@@ -165,8 +178,8 @@ async def transaction_status(
         amount=transaction.amount,
         currency=transaction.currency,
         status=transaction.status,
-        created_at=transaction.created_at,
-        processed_at=transaction.processed_at,
+        created_at=_normalize_datetime(transaction.created_at),
+        processed_at=_normalize_datetime(transaction.processed_at),
     )]
 
 
