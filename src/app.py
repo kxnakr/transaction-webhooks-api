@@ -34,6 +34,7 @@ def _normalize_datetime(value: Optional[Union[datetime, str]]) -> Optional[datet
 
     return datetime.fromisoformat(cleaned)
 
+
 class TransactionWebhook(BaseModel):
     """Webhook payload schema."""
     transaction_id: str = Field(..., alias="transaction_id")
@@ -66,7 +67,7 @@ app = FastAPI(
 )
 
 
-@app.get("/")
+@app.get("/", status_code=status.HTTP_202_ACCEPTED)
 async def root():
     """Health check endpoint."""
     return {
@@ -156,7 +157,11 @@ async def accept_transaction(
     )
 
 
-@app.get("/v1/transactions/{transaction_id}", response_model=list[TransactionResponse])
+@app.get(
+    "/v1/transactions/{transaction_id}",
+    response_model=list[TransactionResponse],
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def transaction_status(
     transaction_id: str,
     db: Session = Depends(get_db),
