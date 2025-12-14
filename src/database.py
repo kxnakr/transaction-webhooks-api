@@ -75,7 +75,7 @@ def upsert_transaction(
     destination_account: str,
     amount: float,
     currency: str,
-) -> Transaction:
+) -> None:
     """Upsert transaction with idempotency logic."""
     stmt = insert(Transaction).values(
         transaction_id=transaction_id,
@@ -107,9 +107,3 @@ def upsert_transaction(
 
     db.execute(stmt)
     db.commit()
-
-    return (
-        db.query(Transaction)
-        .filter(Transaction.transaction_id == transaction_id)
-        .first()
-    )

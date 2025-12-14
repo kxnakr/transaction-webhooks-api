@@ -66,9 +66,8 @@ app = FastAPI(
     docs_url="/docs",
 )
 
-
 @app.get("/", status_code=status.HTTP_202_ACCEPTED)
-async def root():
+def root():
     """Health check endpoint."""
     return {
         "status": "HEALTHY",
@@ -79,7 +78,7 @@ async def root():
 
 
 @app.post("/v1/webhooks/transactions", status_code=status.HTTP_202_ACCEPTED)
-async def accept_transaction(
+def accept_transaction(
     webhook: TransactionWebhook,
     db: Session = Depends(get_db),
 ):
@@ -162,7 +161,7 @@ async def accept_transaction(
     response_model=list[TransactionResponse],
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def transaction_status(
+def transaction_status(
     transaction_id: str,
     db: Session = Depends(get_db),
 ):
