@@ -8,11 +8,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from .tasks import process_transaction
-from .config import settings
 from .database import (
-    FAILED,
     PROCESSING,
-    PROCESSED,
     Transaction,
     get_db,
     upsert_transaction,
@@ -87,38 +84,9 @@ def accept_transaction(
     db: Session = Depends(get_db),
 ):
     """Accept transaction webhook and queue for processing."""
-    # Check for existing transaction
-    existing = (
-        db.query(Transaction)
-        .filter(Transaction.transaction_id == webhook.transaction_id)
-        .first()
-    )
-
-    # Already processed
-    if existing and existing.status == PROCESSED:
-        return JSONResponse(
-            status_code=status.HTTP_202_ACCEPTED,
-            content={
-                "transaction_id": webhook.transaction_id,
-                "status": existing.status,
-                "message": "Already processed;",
-            },
-        )
-
-    # Currently processing
-    if existing and existing.status == PROCESSING:
-        return JSONResponse(
-            status_code=status.HTTP_202_ACCEPTED,
-            content={
-                "transaction_id": webhook.transaction_id,
-                "status": existing.status,
-                "message": "Already processing;",
-            },
-        )
-
-    # New transaction
+    # Insert if new; do nothing if already present
     db_start = time.perf_counter()
-    upsert_transaction(
+    inserted = upsert_transaction(
         db=db,
         transaction_id=webhook.transaction_id,
         source_account=webhook.source_account,
@@ -128,45 +96,41 @@ def accept_transaction(
     )
     db_ms = (time.perf_counter() - db_start) * 1000
 
-    # Queue background task (non-blocking)
-    enqueue_start = time.perf_counter()
-    try:
-        process_transaction.apply_async(
-            args=[webhook.transaction_id],
-            task_id=f"transaction-{webhook.transaction_id}",
-        )
-    except Exception as exc:
-        logger.exception(
-            "Failed to enqueue transaction %s for processing", webhook.transaction_id
-        )
-        transaction = (
-            db.query(Transaction)
-            .filter(Transaction.transaction_id == webhook.transaction_id)
-            .first()
-        )
-        if transaction:
-            transaction.status = FAILED
-            transaction.processed_at = None
-            db.commit()
+    enqueue_ms = 0.0
+    if inserted:
+        # Queue background task (non-blocking) only for new records
+        enqueue_start = time.perf_counter()
+        try:
+            process_transaction.apply_async(
+                args=[webhook.transaction_id],
+                task_id=f"transaction-{webhook.transaction_id}",
+            )
+        except Exception as exc:
+            logger.exception(
+                "Failed to enqueue transaction %s for processing",
+                webhook.transaction_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to queue transaction for processing. Try again later.",
+            ) from exc
 
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to queue transaction for processing. Try again later.",
-        ) from exc
+        enqueue_ms = (time.perf_counter() - enqueue_start) * 1000
 
-    enqueue_ms = (time.perf_counter() - enqueue_start) * 1000
     logger.info(
-        "[%s] accepted webhook; db=%.1fms enqueue=%.1fms",
+        "[%s] accepted webhook; db=%.1fms enqueue=%.1fms queued=%s",
         webhook.transaction_id,
         db_ms,
         enqueue_ms,
+        inserted,
     )
 
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={
             "transaction_id": webhook.transaction_id,
-            "status": PROCESSING,
+            "status": PROCESSING if inserted else "DUPLICATE",
+            "queued": inserted,
         },
     )
 

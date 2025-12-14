@@ -6,8 +6,6 @@ from sqlalchemy import (
     DateTime,
     Index,
     Numeric,
-    func,
-    case,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import insert
@@ -75,8 +73,8 @@ def upsert_transaction(
     destination_account: str,
     amount: float,
     currency: str,
-) -> None:
-    """Upsert transaction with idempotency logic."""
+) -> bool:
+    """Insert transaction; no-op on conflict. Returns True if inserted."""
     stmt = insert(Transaction).values(
         transaction_id=transaction_id,
         source_account=source_account,
@@ -88,22 +86,8 @@ def upsert_transaction(
         processed_at=None,
     )
 
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["transaction_id"],
-        set_={
-            "source_account": stmt.excluded.source_account,
-            "destination_account": stmt.excluded.destination_account,
-            "amount": stmt.excluded.amount,
-            "currency": stmt.excluded.currency,
-            "status": case(
-                (Transaction.status == PROCESSED, Transaction.status),
-                else_=stmt.excluded.status,
-            ),
-            "created_at": func.coalesce(
-                Transaction.created_at, stmt.excluded.created_at
-            ),
-        },
-    )
+    stmt = stmt.on_conflict_do_nothing(index_elements=["transaction_id"])
 
-    db.execute(stmt)
+    result = db.execute(stmt)
     db.commit()
+    return result.rowcount > 0
