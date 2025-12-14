@@ -18,7 +18,9 @@ engine = create_engine(
     settings.DATABASE_URL,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=False,
+    pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
+    pool_recycle=settings.DATABASE_POOL_RECYCLE,
+    pool_timeout=settings.DATABASE_POOL_TIMEOUT,
     echo=settings.DEBUG,
 )
 

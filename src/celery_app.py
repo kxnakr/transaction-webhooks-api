@@ -27,10 +27,11 @@ def make_celery() -> Celery:
         task_acks_late=True,
         task_reject_on_worker_lost=True,
         worker_prefetch_multiplier=1,
+        broker_pool_limit=2,
+        broker_heartbeat=30,
         task_default_max_retries=3,
         task_default_retry_delay=60,
         broker_connection_retry_on_startup=True,
-        broker_pool_limit=10,
         redis_socket_keepalive=True,
         redis_socket_keepalive_options={
             "TCP_KEEPIDLE": 60,

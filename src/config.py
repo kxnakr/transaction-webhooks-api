@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_PRE_PING: bool = True
+    DATABASE_POOL_RECYCLE: int = 600
+    DATABASE_POOL_TIMEOUT: int = 30
 
     # Redis (Upstash)
     UPSTASH_REDIS_HOST: str
