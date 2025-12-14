@@ -20,7 +20,10 @@ from .database import (
 )
 
 
-logger = logging.getLogger(__name__)
+# Ensure our INFO logs actually emit even when uvicorn doesn't touch root logger.
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("transactions.api")
+logger.setLevel(logging.INFO)
 
 
 def _normalize_datetime(value: Optional[Union[datetime, str]]) -> Optional[datetime]:
