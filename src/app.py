@@ -1,5 +1,6 @@
 import logging
 import uvicorn
+import time
 from datetime import datetime
 from typing import Optional, Union
 from fastapi import FastAPI, HTTPException, Depends, status
@@ -113,6 +114,7 @@ def accept_transaction(
         )
 
     # New transaction
+    db_start = time.perf_counter()
     upsert_transaction(
         db=db,
         transaction_id=webhook.transaction_id,
@@ -121,8 +123,10 @@ def accept_transaction(
         amount=webhook.amount,
         currency=webhook.currency,
     )
+    db_ms = (time.perf_counter() - db_start) * 1000
 
     # Queue background task (non-blocking)
+    enqueue_start = time.perf_counter()
     try:
         process_transaction.apply_async(
             args=[webhook.transaction_id],
@@ -146,6 +150,14 @@ def accept_transaction(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to queue transaction for processing. Try again later.",
         ) from exc
+
+    enqueue_ms = (time.perf_counter() - enqueue_start) * 1000
+    logger.info(
+        "[%s] accepted webhook; db=%.1fms enqueue=%.1fms",
+        webhook.transaction_id,
+        db_ms,
+        enqueue_ms,
+    )
 
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
