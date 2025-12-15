@@ -1,0 +1,64 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - wfg-network
+    expose:
+      - "8000"
+    environment:
+      PORT: 8000
+      SERVICE_TYPE: web
+
+  worker:
+    build: .
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - wfg-network
+    environment:
+      SERVICE_TYPE: worker
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: krishna
+      POSTGRES_PASSWORD: pg-password
+      POSTGRES_DB: wfg-transaction-webhooks-api
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - wfg-network
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--requirepass", "redis-password"]
+    networks:
+      - wfg-network
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - wfg-network
+
+networks:
+  wfg-network:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

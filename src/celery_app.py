@@ -4,10 +4,12 @@ from .config import settings
 
 def make_celery() -> Celery:
     """Create and configure Celery application."""
+    broker_url = settings.REDIS_CONNECTION_URL
+
     celery_app = Celery(
         settings.APP_NAME,
-        broker=settings.UPSTASH_REDIS_CONNECTION_LINK,
-        backend=settings.UPSTASH_REDIS_CONNECTION_LINK,
+        broker=broker_url,
+        backend=broker_url,
         include=["src.tasks"],
     )
     celery_app.conf.update(

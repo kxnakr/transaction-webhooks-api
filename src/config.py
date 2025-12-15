@@ -1,9 +1,4 @@
-from urllib.parse import quote
 from pydantic_settings import BaseSettings
-
-def _build_upstash_connection_link(*, host: str, port: int, password: str) -> str:
-    encoded_password = quote(password, safe="")
-    return f"rediss://:{encoded_password}@{host}:{port}?ssl_cert_reqs=required"
 
 
 class Settings(BaseSettings):
@@ -19,22 +14,17 @@ class Settings(BaseSettings):
     DATABASE_POOL_RECYCLE: int = 600
     DATABASE_POOL_TIMEOUT: int = 30
 
-    # Redis (Upstash)
-    UPSTASH_REDIS_HOST: str
-    UPSTASH_REDIS_PORT: int
-    UPSTASH_REDIS_PASSWORD: str
+    # Redis
+    REDIS_URL: str
 
     class Config:
         env_file = ".env"
         case_sensitive = True
 
     @property
-    def UPSTASH_REDIS_CONNECTION_LINK(self) -> str:
-        return _build_upstash_connection_link(
-            host=self.UPSTASH_REDIS_HOST,
-            port=self.UPSTASH_REDIS_PORT,
-            password=self.UPSTASH_REDIS_PASSWORD,
-        )
+    def REDIS_CONNECTION_URL(self) -> str:
+        """Return broker/backend URL."""
+        return self.REDIS_URL
 
 
 settings = Settings()
